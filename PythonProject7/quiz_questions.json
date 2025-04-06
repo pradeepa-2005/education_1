@@ -1,0 +1,18 @@
+[
+  {
+    "question_id": 101,
+    "topic": "Fractions",
+    "question": "What is 1/2 + 1/4?",
+    "options": ["1/6", "3/4", "1/2", "1"],
+    "correct_answer": "3/4",
+    "difficulty": "easy"
+  },
+  {
+    "question_id": 102,
+    "topic": "Algebra",
+    "question": "If x + 3 = 7, what is x?",
+    "options": ["10", "4", "3", "7"],
+    "correct_answer": "4",
+    "difficulty": "easy"
+  }
+]

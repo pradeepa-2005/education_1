@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Edu Dashboard</title>
+</head>
+<body>
+  <h1>📚 Education Dashboard</h1>
+  <section>
+    <h2>📝 Quiz</h2>
+    <div id="quiz-container"></div>
+    <button onclick="submitQuiz()">Submit Quiz</button>
+    <div id="result"></div>
+    <div id="interventions"></div>
+  </section>
+
+  <section>
+    <h2>📈 Personalized Recommendations</h2>
+    <button onclick="loadRecommendations()">Load</button>
+    <div id="recommendation-list"></div>
+  </section>
+
+  <script>
+    // Load quiz questions
+    let quizData = [];
+    let startTime = Date.now();
+    fetch("/get_quiz")
+      .then(res => res.json())
+      .then(data => {
+        quizData = data;
+        let html = "";
+        data.forEach((q, i) => {
+          html += `<p><strong>${i+1}. ${q.question}</strong></p>`;
+          q.options.forEach(opt => {
+            html += `<label><input type="radio" name="q${i}" value="${opt}"> ${opt}</label><br>`;
+          });
+          html += `<br>`;
+        });
+        document.getElementById("quiz-container").innerHTML = html;
+      });
+
+    async function submitQuiz() {
+      let endTime = Date.now();
+      let timeSpent = Math.floor((endTime - startTime) / 1000);
+      let correctCount = 0;
+      let totalScore = 0;
+      let interventions = "";
+
+      for (let i = 0; i < quizData.length; i++) {
+        const q = quizData[i];
+        const selected = document.querySelector(`input[name="q${i}"]:checked`);
+        const answer = selected ? selected.value : null;
+        const isCorrect = answer === q.correct_answer;
+        const score = isCorrect ? 100 : 0;
+
+        if (isCorrect) correctCount++;
+        totalScore += score;
+
+        const data = {
+          student_id: 1,
+          activity_type: "quiz",
+          topic: q.topic,
+          score,
+          time_spent: timeSpent,
+          attempts: 1,
+          correct_attempts: isCorrect ? 1 : 0,
+          difficulty: q.difficulty,
+          date: new Date().toISOString().split('T')[0]
+        };
+
+        await fetch('/submit_activity', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+
+        const res = await fetch('/predict_gap', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        const prediction = await res.json();
+        interventions += `<p><strong>${q.topic}</strong>: ${prediction.intervention}</p>`;
+      }
+
+      const percent = (correctCount / quizData.length * 100).toFixed(2);
+      document.getElementById("result").innerHTML = `
+        ✅ Quiz Completed!<br>Correct: ${correctCount}<br>Score: ${percent}%<br>Time: ${timeSpent}s
+      `;
+      document.getElementById("interventions").innerHTML = `<h3>📌 Interventions:</h3>${interventions}`;
+    }
+
+    function loadRecommendations() {
+      fetch('/recommendations')
+        .then(res => res.json())
+        .then(data => {
+          let html = data.map(d => `<p><strong>${d.name}</strong>: ${d.recommended_action}</p>`).join("");
+          document.getElementById("recommendation-list").innerHTML = html;
+        });
+    }
+  </script>
+</body>
+</html>

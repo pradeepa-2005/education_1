@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Student Quiz</title>
+</head>
+<body>
+  <h2>📝 Student Quiz</h2>
+  <div id="quiz-container"></div>
+  <button onclick="submitQuiz()">Submit</button>
+
+  <div id="result" style="margin-top: 20px; font-weight: bold;"></div>
+  <div id="interventions" style="margin-top: 20px;"></div>
+
+  <script>
+    let quizData = [];
+    let startTime = Date.now();
+
+    fetch("/get_quiz")
+      .then(res => res.json())
+      .then(data => {
+        quizData = data;
+        let html = "";
+        data.forEach((q, i) => {
+          html += <div>
+            <p><strong>${i+1}. ${q.question}</strong></p>;
+          q.options.forEach(opt => {
+            html += <label><input type="radio" name="q${i}" value="${opt}"> ${opt}</label><br>;
+          });
+          html += </div><br>;
+        });
+        document.getElementById("quiz-container").innerHTML = html;
+      });
+
+    async function submitQuiz() {
+      let endTime = Date.now();
+      let timeSpent = Math.floor((endTime - startTime) / 1000);
+      let correctCount = 0;
+      let totalScore = 0;
+      let results = [];
+      let interventionHtml = "";
+
+      for (let i = 0; i < quizData.length; i++) {
+        const q = quizData[i];
+        const selected = document.querySelector(input[name="q${i}"]:checked);
+        const answer = selected ? selected.value : null;
+        const isCorrect = answer === q.correct_answer;
+        const score = isCorrect ? 100 : 0;
+
+        if (isCorrect) correctCount++;
+        totalScore += score;
+
+        const data = {
+          student_id: 1,
+          activity_type: "quiz",
+          topic: q.topic,
+          score: score,
+          time_spent: timeSpent,
+          attempts: 1,
+          correct_attempts: isCorrect ? 1 : 0,
+          difficulty: q.difficulty,
+          date: new Date().toISOString().split('T')[0]
+        };
+
+        // Submit activity to DB
+        await fetch('/submit_activity', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+
+        // Auto-trigger gap detection
+        const response = await fetch('/predict_gap', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+
+        const prediction = await response.json();
+        interventionHtml +=
+          <p>📚 <strong>Topic: ${q.topic}</strong> —
+          ${prediction.learning_gap ? "❗ Gap Detected" : "✅ No Gap"}<br>
+          💡 Suggestion: ${prediction.intervention}</p><hr>;
+      }
+
+      const percentage = ((correctCount / quizData.length) * 100).toFixed(2);
+      document.getElementById("result").innerHTML =
+        ✅ Quiz Submitted!<br>
+        📌 Total Questions: ${quizData.length}<br>
+        🎯 Correct Answers: ${correctCount}<br>
+        🧮 Score: ${percentage}%<br>
+        🕒 Time Spent: ${timeSpent} seconds
+      ;
+
+      document.getElementById("interventions").innerHTML = <h3>📈 Personalized Interventions:</h3>${interventionHtml};
+    }
+  </script>
+</body>
+</html>
